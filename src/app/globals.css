@@ -1,26 +1,169 @@
-@import "tailwindcss";
-
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --black: #000000;
+  --near-black: #262626;
+  --darkest-surface: #090909;
+  --white: #ffffff;
+  --snow: #fafafa;
+  --light-gray: #e5e5e5;
+  --border-light: #d4d4d4;
+  --stone: #737373;
+  --mid-gray: #525252;
+  --silver: #a3a3a3;
+  --button-text-dark: #404040;
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background-color: var(--white);
+  color: var(--black);
+  font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  font-weight: 400;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Typography */
+.heading-display {
+  font-family: "SF Pro Rounded", ui-rounded, system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+  font-size: 48px;
+  font-weight: 500;
+  line-height: 1.0;
+  color: var(--black);
+  letter-spacing: normal;
+}
+
+.heading-section {
+  font-family: "SF Pro Rounded", ui-rounded, system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+  font-size: 36px;
+  font-weight: 500;
+  line-height: 1.11;
+  color: var(--black);
+}
+
+.heading-card {
+  font-family: ui-sans-serif, system-ui, -apple-system, sans-serif;
+  font-size: 24px;
+  font-weight: 400;
+  line-height: 1.33;
+  color: var(--black);
+}
+
+.text-body-large {
+  font-size: 18px;
+  font-weight: 400;
+  line-height: 1.56;
+  color: var(--stone);
+}
+
+.text-body {
+  font-size: 16px;
+  font-weight: 400;
+  line-height: 1.5;
+  color: var(--stone);
+}
+
+/* Buttons (Pill-shaped) */
+.btn-primary {
+  background-color: var(--black);
+  color: var(--white);
+  border: none;
+  padding: 10px 24px;
+  border-radius: 9999px;
+  font-size: 16px;
+  font-weight: 400;
+  cursor: pointer;
+  transition: opacity 0.2s ease;
+  width: 100%;
+}
+
+.btn-primary:hover {
+  opacity: 0.8;
+}
+
+.btn-secondary {
+  background-color: var(--light-gray);
+  color: var(--near-black);
+  border: 1px solid var(--light-gray);
+  padding: 10px 24px;
+  border-radius: 9999px;
+  font-size: 16px;
+  font-weight: 400;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+}
+
+.btn-secondary:hover {
+  background-color: var(--border-light);
+}
+
+.btn-white {
+  background-color: var(--white);
+  color: var(--button-text-dark);
+  border: 1px solid var(--border-light);
+  padding: 10px 24px;
+  border-radius: 9999px;
+  font-size: 16px;
+  font-weight: 400;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+}
+
+.btn-white:hover {
+  background-color: var(--snow);
+}
+
+/* Containers (12px radius, no shadow) */
+.panel {
+  background-color: var(--white);
+  border: none;
+  border-radius: 12px;
+  padding: 40px 0;
+}
+
+.card {
+  background-color: var(--white);
+  border: 1px solid var(--light-gray);
+  border-radius: 12px;
+  padding: 24px;
+}
+
+/* Upload Zone */
+.upload-zone {
+  border: 1px dashed var(--silver);
+  border-radius: 12px;
+  padding: 48px 24px;
+  margin-bottom: 40px;
+  cursor: pointer;
+  background-color: var(--snow);
+  transition: border-color 0.2s ease;
+}
+
+.upload-zone:hover {
+  border-color: var(--black);
+}
+
+/* Common Layouts */
+.container {
+  width: 100%;
+  max-width: 1024px;
+  margin: 0 auto;
+  padding: 0 24px;
+}
+
+.main-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+  align-items: center;
+  padding-top: 88px;
+  padding-bottom: 88px;
 }
