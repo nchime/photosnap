@@ -31,6 +31,7 @@ export default function Home() {
   const [resultImage, setResultImage] = useState<string | null>(null);
   const [savedPhotos, setSavedPhotos] = useState<SavedPhoto[]>([]);
   const [profileType, setProfileType] = useState<ProfileType>('passport_35x45');
+  const [isDragging, setIsDragging] = useState(false);
   
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -45,13 +46,41 @@ export default function Home() {
     }
   }, []);
 
+  const processFile = (file: File) => {
+    setImageSrc(URL.createObjectURL(file));
+    setResultImage(null);
+    setZoom(1);
+    setCrop({ x: 0, y: 0 });
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
+  };
+
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selected = e.target.files?.[0];
     if (selected) {
-      setImageSrc(URL.createObjectURL(selected));
-      setResultImage(null);
-      setZoom(1);
-      setCrop({ x: 0, y: 0 });
+      processFile(selected);
+    }
+  };
+
+  const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    setIsDragging(true);
+  };
+
+  const handleDragLeave = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    setIsDragging(false);
+  };
+
+  const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    setIsDragging(false);
+    const selected = e.dataTransfer.files?.[0];
+    if (selected && (selected.type === "image/jpeg" || selected.type === "image/png")) {
+      processFile(selected);
+    } else if (selected) {
+      alert("JPG 또는 PNG 이미지만 업로드 가능합니다.");
     }
   };
 
@@ -173,18 +202,47 @@ export default function Home() {
           />
 
           {!imageSrc && !resultImage && (
-            <div className="upload-zone" onClick={handleUploadClick}>
+            <div 
+              className="upload-zone" 
+              onClick={handleUploadClick}
+              onDragOver={handleDragOver}
+              onDragLeave={handleDragLeave}
+              onDrop={handleDrop}
+              style={{
+                borderColor: isDragging ? 'var(--black)' : 'var(--silver)',
+                backgroundColor: isDragging ? 'var(--light-gray)' : 'var(--snow)',
+              }}
+            >
               <h3 className="heading-card" style={{ marginBottom: '8px', fontWeight: 500 }}>
                 사진 업로드
               </h3>
-              <p className="text-body" style={{ color: 'var(--silver)' }}>
-                클릭하여 사진을 선택하세요 (JPG, PNG)
+              <p className="text-body" style={{ color: 'var(--stone)' }}>
+                클릭하거나 사진을 드래그하여 놓으세요 (JPG, PNG)
               </p>
             </div>
           )}
 
           {imageSrc && !resultImage && (
-            <div style={{ marginBottom: '48px' }}>
+            <div style={{ marginBottom: '48px', textAlign: 'left' }}>
+              {/* Top Bar: Action Buttons aligned to right */}
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px', marginBottom: '16px' }}>
+                <button 
+                  className="btn-secondary" 
+                  onClick={handleReset}
+                  style={{ padding: '8px 16px', fontSize: '14px' }}
+                >
+                  취소
+                </button>
+                <button 
+                  className="btn-white" 
+                  onClick={() => alert("설정 기능은 확장 예정입니다.")}
+                  style={{ padding: '8px 16px', fontSize: '14px' }}
+                >
+                  설정
+                </button>
+              </div>
+
+              {/* Cropper Area */}
               <div style={{ position: 'relative', width: '100%', height: '480px', backgroundColor: 'var(--snow)', borderRadius: '12px', overflow: 'hidden', border: '1px solid var(--light-gray)' }}>
                 <Cropper
                   image={imageSrc}
