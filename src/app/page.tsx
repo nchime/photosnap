@@ -33,6 +33,11 @@ export default function Home() {
   const [profileType, setProfileType] = useState<ProfileType>('passport_35x45');
   const [isDragging, setIsDragging] = useState(false);
   
+  // AI 관련 상태
+  const [geminiKey, setGeminiKey] = useState<string>('');
+  const [showSettings, setShowSettings] = useState(false);
+  const [showOptionDialog, setShowOptionDialog] = useState(false);
+
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -43,6 +48,10 @@ export default function Home() {
       } catch (e) {
         console.error("Failed to parse saved photos", e);
       }
+    }
+    const storedKey = localStorage.getItem("gemini_api_key");
+    if (storedKey) {
+      setGeminiKey(storedKey);
     }
   }, []);
 
@@ -92,9 +101,20 @@ export default function Home() {
     setCroppedAreaPixels(croppedAreaPixels);
   }, []);
 
-  const handleGenerateClick = async () => {
+  const handlePreGenerateClick = () => {
     if (!imageSrc || !croppedAreaPixels) {
       alert("먼저 사진을 업로드해주세요.");
+      return;
+    }
+    setShowOptionDialog(true);
+  };
+
+  const proceedGenerate = async (useAI: boolean) => {
+    setShowOptionDialog(false);
+    
+    // AI 옵션 선택 시 키가 없으면 설정창 오픈
+    if (useAI && !geminiKey) {
+      setShowSettings(true);
       return;
     }
 
@@ -107,6 +127,10 @@ export default function Home() {
       const formData = new FormData();
       formData.append("file", file);
       formData.append("profileType", profileType);
+      formData.append("useAI", useAI ? "true" : "false");
+      if (useAI) {
+        formData.append("geminiKey", geminiKey);
+      }
 
       const response = await fetch("/api/generate", {
         method: "POST",
@@ -122,7 +146,6 @@ export default function Home() {
         setResultImage(data.resultUrl);
         setImageSrc(null);
         
-        // 자동 보관 로직
         const newPhoto: SavedPhoto = {
           id: Date.now().toString(),
           url: data.resultUrl,
@@ -156,6 +179,13 @@ export default function Home() {
     if (fileInputRef.current) {
       fileInputRef.current.value = "";
     }
+  };
+
+  const saveSettings = () => {
+    localStorage.setItem("gemini_api_key", geminiKey);
+    setShowSettings(false);
+    // 만약 설정 저장 직후 다시 옵션창을 띄우고 싶다면 추가 가능
+    // if (imageSrc && !resultImage) setShowOptionDialog(true);
   };
 
   return (
@@ -235,7 +265,7 @@ export default function Home() {
                 </button>
                 <button 
                   className="btn-white" 
-                  onClick={() => alert("설정 기능은 확장 예정입니다.")}
+                  onClick={() => setShowSettings(true)}
                   style={{ padding: '8px 16px', fontSize: '14px' }}
                 >
                   설정
@@ -295,7 +325,7 @@ export default function Home() {
             <div style={{ display: 'flex', justifyContent: 'center' }}>
               <button 
                 className="btn-primary" 
-                onClick={!resultImage ? handleGenerateClick : handleReset}
+                onClick={!resultImage ? handlePreGenerateClick : handleReset}
                 disabled={isLoading}
                 style={{ maxWidth: '320px', padding: '12px 24px', fontSize: '16px' }}
               >
@@ -338,6 +368,56 @@ export default function Home() {
           </div>
         )}
       </div>
+
+      {/* --- 모달 (Modals) --- */}
+      
+      {/* 1. 옵션 선택 대화창 */}
+      {showOptionDialog && (
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(255,255,255,0.85)', zIndex: 50, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '24px' }}>
+          <div className="card" style={{ width: '100%', maxWidth: '400px', textAlign: 'center', padding: '40px 32px' }}>
+            <h3 className="heading-card" style={{ marginBottom: '16px', fontWeight: 500 }}>어떤 방식으로 생성할까요?</h3>
+            <p className="text-body" style={{ marginBottom: '32px', color: 'var(--stone)', fontSize: '14px' }}>
+              원본의 느낌을 그대로 유지할지, AI(Gemini)를 통해 전문가가 만진 것처럼 피부와 윤곽을 자연스럽게 보정할지 선택해 주세요.
+            </p>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+              <button className="btn-primary" onClick={() => proceedGenerate(true)}>AI 보정 후 생성</button>
+              <button className="btn-secondary" onClick={() => proceedGenerate(false)}>원본 그대로 생성</button>
+            </div>
+            <button 
+              style={{ background: 'none', border: 'none', marginTop: '24px', color: 'var(--silver)', cursor: 'pointer', fontSize: '14px', textDecoration: 'underline' }}
+              onClick={() => setShowOptionDialog(false)}
+            >
+              닫기
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* 2. 환경설정 모달 (Gemini Key 입력창) */}
+      {showSettings && (
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(255,255,255,0.85)', zIndex: 60, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '24px' }}>
+          <div className="card" style={{ width: '100%', maxWidth: '400px', textAlign: 'left', padding: '40px 32px' }}>
+            <h3 className="heading-card" style={{ marginBottom: '24px', fontWeight: 500 }}>환경 설정</h3>
+            <div style={{ marginBottom: '32px' }}>
+              <label className="text-body" style={{ display: 'block', marginBottom: '8px', color: 'var(--near-black)', fontWeight: 500 }}>Gemini API Key</label>
+              <p className="text-body" style={{ marginBottom: '12px', fontSize: '12px', color: 'var(--silver)' }}>
+                AI 보정 기능을 사용하기 위해서는 발급받은 Gemini API Key가 필요합니다. 입력하신 키는 브라우저 내부에만 안전하게 저장됩니다.
+              </p>
+              <input 
+                 type="password" 
+                 value={geminiKey} 
+                 onChange={e => setGeminiKey(e.target.value)} 
+                 placeholder="AIzaSy..."
+                 style={{ width: '100%', padding: '12px 16px', borderRadius: '9999px', border: '1px solid var(--silver)', fontSize: '16px', outline: 'none' }} 
+              />
+            </div>
+            <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end' }}>
+              <button className="btn-white" onClick={() => setShowSettings(false)}>취소</button>
+              <button className="btn-primary" onClick={saveSettings} style={{ width: 'auto' }}>저장</button>
+            </div>
+          </div>
+        </div>
+      )}
     </main>
   );
 }
