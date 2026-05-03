@@ -36,6 +36,8 @@ export default function Home() {
   // AI 관련 상태
   const [geminiKey, setGeminiKey] = useState<string>('');
   const [showSettings, setShowSettings] = useState(false);
+  const [isValidating, setIsValidating] = useState(false);
+  const [settingsError, setSettingsError] = useState<string | null>(null);
   const [showOptionDialog, setShowOptionDialog] = useState(false);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -181,11 +183,33 @@ export default function Home() {
     }
   };
 
-  const saveSettings = () => {
-    localStorage.setItem("gemini_api_key", geminiKey);
-    setShowSettings(false);
-    // 만약 설정 저장 직후 다시 옵션창을 띄우고 싶다면 추가 가능
-    // if (imageSrc && !resultImage) setShowOptionDialog(true);
+  const saveSettings = async () => {
+    if (!geminiKey.trim()) {
+      setSettingsError("API 키를 입력해주세요.");
+      return;
+    }
+
+    setIsValidating(true);
+    setSettingsError(null);
+
+    try {
+      // Gemini API 키 유효성 검사를 위해 간단한 모델 목록 조회 API 호출
+      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${geminiKey}`);
+      
+      if (response.ok) {
+        localStorage.setItem("gemini_api_key", geminiKey);
+        setShowSettings(false);
+      } else {
+        const data = await response.json();
+        const errorMessage = data.error?.message || "유효하지 않은 API 키입니다.";
+        setSettingsError(`검증 실패: ${errorMessage}`);
+      }
+    } catch (error) {
+      console.error("API Key validation error:", error);
+      setSettingsError("연결 오류가 발생했습니다. 네트워크 상태를 확인해주세요.");
+    } finally {
+      setIsValidating(false);
+    }
   };
 
   return (
@@ -403,18 +427,36 @@ export default function Home() {
               <p className="text-body" style={{ marginBottom: '12px', fontSize: '12px', color: 'var(--silver)' }}>
                 AI 보정 기능을 사용하기 위해서는 발급받은 Gemini API Key가 필요합니다. 입력하신 키는 브라우저 내부에만 안전하게 저장됩니다.
               </p>
-              <input 
-                 type="password" 
-                 value={geminiKey} 
-                 onChange={e => setGeminiKey(e.target.value)} 
-                 placeholder="AIzaSy..."
-                 style={{ width: '100%', padding: '12px 16px', borderRadius: '9999px', border: '1px solid var(--silver)', fontSize: '16px', outline: 'none' }} 
-              />
-            </div>
-            <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end' }}>
-              <button className="btn-white" onClick={() => setShowSettings(false)}>취소</button>
-              <button className="btn-primary" onClick={saveSettings} style={{ width: 'auto' }}>저장</button>
-            </div>
+                <input 
+                   type="password" 
+                   value={geminiKey} 
+                   onChange={e => {
+                     setGeminiKey(e.target.value);
+                     if (settingsError) setSettingsError(null);
+                   }} 
+                   placeholder="AIzaSy..."
+                   style={{ width: '100%', padding: '12px 16px', borderRadius: '9999px', border: settingsError ? '1px solid #ff4d4f' : '1px solid var(--silver)', fontSize: '16px', outline: 'none' }} 
+                />
+                {settingsError && (
+                  <p style={{ color: '#ff4d4f', fontSize: '12px', marginTop: '8px', marginLeft: '12px' }}>
+                    {settingsError}
+                  </p>
+                )}
+              </div>
+              <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end' }}>
+                <button className="btn-white" onClick={() => {
+                  setShowSettings(false);
+                  setSettingsError(null);
+                }} disabled={isValidating}>취소</button>
+                <button 
+                  className="btn-primary" 
+                  onClick={saveSettings} 
+                  style={{ width: 'auto' }}
+                  disabled={isValidating}
+                >
+                  {isValidating ? "검증 중..." : "저장"}
+                </button>
+              </div>
           </div>
         </div>
       )}
