@@ -10,25 +10,39 @@ export class ProfileAgent extends Agent {
 
   // 추후 프론트엔드에서 넘어온 profileType(규격)에 따라
   // 스킬(Skill)들에게 비율, 해상도, 얼굴 크기 제한 등의 Context를 동적으로 주입할 뼈대입니다.
-  async process(input: { imageBase64: string; targetProfileType: string }): Promise<string> {
-    console.log(`[Agent: ${this.name}] ${input.targetProfileType} 규격으로 사진 처리 시작`);
+  async process(input: { imageBase64: string; targetProfileType: string; useAI?: boolean; geminiKey?: string }): Promise<string | string[]> {
+    console.log(`[Agent: ${this.name}] ${input.targetProfileType} 규격으로 사진 처리 시작 (AI: ${input.useAI})`);
     
     try {
       let currentBase64 = input.imageBase64;
       
       // 스킬들에게 전달할 추가 정보(Context) 정의
-      // 예: 여권 사진일 경우 { faceRatio: '3.2-3.6', bgColor: 'white' } 등
       const context = {
-        profileType: input.targetProfileType
+        profileType: input.targetProfileType,
+        useAI: input.useAI,
+        geminiKey: input.geminiKey
       };
 
-      // 등록된 스킬 파이프라인을 실행하며 Context를 함께 넘겨줍니다.
+      // AI 보정(SuperpowersSkill)이 필요한 경우 특별 처리
+      if (input.useAI && this.skills.has("SuperpowersSkill")) {
+        const superpowerSkill = this.skills.get("SuperpowersSkill")!;
+        const results = await superpowerSkill.execute(currentBase64, context);
+        
+        // SuperpowersSkill이 여러 결과를 반환하면 (예: 오리지널, 정장, 캐주얼)
+        if (Array.isArray(results)) {
+           return results.map(img => img.startsWith('data:image') ? img : `data:image/png;base64,${img}`);
+        }
+        currentBase64 = results;
+      }
+
+      // 나머지 일반 스킬들 순차 실행
       for (const skill of this.skills.values()) {
+        if (skill.name === "SuperpowersSkill") continue; // 이미 위에서 처리됨
         currentBase64 = await this.useSkill(skill.name, currentBase64, context);
       }
       
       console.log(`[Agent: ${this.name}] 사진 처리 완료`);
-      return `data:image/png;base64,${currentBase64}`;
+      return currentBase64.startsWith('data:image') ? currentBase64 : `data:image/png;base64,${currentBase64}`;
     } catch (error) {
       console.error(`[Agent: ${this.name}] 처리 중 에러 발생:`, error);
       throw error;

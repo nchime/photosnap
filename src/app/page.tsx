@@ -28,7 +28,7 @@ export default function Home() {
   const [zoom, setZoom] = useState(1);
   const [croppedAreaPixels, setCroppedAreaPixels] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
-  const [resultImage, setResultImage] = useState<string | null>(null);
+  const [resultImages, setResultImages] = useState<string[]>([]);
   const [savedPhotos, setSavedPhotos] = useState<SavedPhoto[]>([]);
   const [profileType, setProfileType] = useState<ProfileType>('passport_35x45');
   const [isDragging, setIsDragging] = useState(false);
@@ -59,7 +59,7 @@ export default function Home() {
 
   const processFile = (file: File) => {
     setImageSrc(URL.createObjectURL(file));
-    setResultImage(null);
+    setResultImages([]);
     setZoom(1);
     setCrop({ x: 0, y: 0 });
     if (fileInputRef.current) {
@@ -144,16 +144,17 @@ export default function Home() {
       }
 
       const data = await response.json();
-      if (data.success && data.resultUrl) {
-        setResultImage(data.resultUrl);
+      if (data.success && data.resultUrls) {
+        setResultImages(data.resultUrls);
         setImageSrc(null);
         
-        const newPhoto: SavedPhoto = {
-          id: Date.now().toString(),
-          url: data.resultUrl,
+        // 보관함에는 첫 번째 사진(또는 모든 사진) 저장
+        const newPhotos: SavedPhoto[] = data.resultUrls.map((url: string, index: number) => ({
+          id: `${Date.now()}_${index}`,
+          url: url,
           createdAt: Date.now(),
-        };
-        const newSavedPhotos = [newPhoto, ...savedPhotos];
+        }));
+        const newSavedPhotos = [...newPhotos, ...savedPhotos];
         setSavedPhotos(newSavedPhotos);
         localStorage.setItem("passport_photos", JSON.stringify(newSavedPhotos));
       } else {
@@ -177,7 +178,7 @@ export default function Home() {
 
   const handleReset = () => {
     setImageSrc(null);
-    setResultImage(null);
+    setResultImages([]);
     if (fileInputRef.current) {
       fileInputRef.current.value = "";
     }
@@ -224,7 +225,7 @@ export default function Home() {
             원하는 규격과 영역을 선택해 완벽한 증명사진을 만드세요.
           </p>
 
-          {!resultImage && (
+          {!resultImages.length && (
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', justifyContent: 'center', marginBottom: '48px' }}>
               {(Object.keys(PROFILE_CONFIGS) as ProfileType[]).map((type) => (
                 <button
@@ -255,7 +256,7 @@ export default function Home() {
             style={{ display: 'none' }} 
           />
 
-          {!imageSrc && !resultImage && (
+          {!imageSrc && !resultImages.length && (
             <div 
               className="upload-zone" 
               onClick={handleUploadClick}
@@ -276,7 +277,7 @@ export default function Home() {
             </div>
           )}
 
-          {imageSrc && !resultImage && (
+          {imageSrc && !resultImages.length && (
             <div style={{ marginBottom: '48px', textAlign: 'left' }}>
               {/* Top Bar: Action Buttons aligned to right */}
               <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px', marginBottom: '16px' }}>
@@ -326,34 +327,48 @@ export default function Home() {
             </div>
           )}
 
-          {resultImage && (
+          {resultImages.length > 0 && (
             <div style={{ marginBottom: '48px' }}>
               <h3 className="heading-card" style={{ marginBottom: '24px', fontWeight: 500 }}>
-                {PROFILE_CONFIGS[profileType].label} 변환 완료
+                {PROFILE_CONFIGS[profileType].label} AI 변환 완료
               </h3>
               <div style={{ 
-                position: 'relative', 
-                width: '240px', 
-                aspectRatio: PROFILE_CONFIGS[profileType].aspect.toString(), 
-                margin: '0 auto', 
-                borderRadius: '12px', 
-                overflow: 'hidden', 
-                border: '1px solid var(--light-gray)'
+                display: 'grid',
+                gridTemplateColumns: resultImages.length > 1 ? 'repeat(auto-fit, minmax(200px, 1fr))' : '1fr',
+                gap: '24px',
+                justifyContent: 'center'
               }}>
-                <Image src={resultImage} alt="Result" fill style={{ objectFit: 'cover' }} />
+                {resultImages.map((url, idx) => (
+                  <div key={idx} style={{ textAlign: 'center' }}>
+                    <div style={{ 
+                      position: 'relative', 
+                      width: '100%', 
+                      aspectRatio: PROFILE_CONFIGS[profileType].aspect.toString(), 
+                      borderRadius: '12px', 
+                      overflow: 'hidden', 
+                      border: '1px solid var(--light-gray)',
+                      marginBottom: '12px'
+                    }}>
+                      <Image src={url} alt={`Result ${idx}`} fill style={{ objectFit: 'cover' }} />
+                    </div>
+                    <p className="text-body" style={{ fontSize: '13px', color: 'var(--stone)' }}>
+                      {idx === 0 ? "오리지널" : idx === 1 ? "정장 스타일" : "캐주얼 스타일"}
+                    </p>
+                  </div>
+                ))}
               </div>
             </div>
           )}
 
-          {imageSrc || resultImage ? (
+          {imageSrc || resultImages.length > 0 ? (
             <div style={{ display: 'flex', justifyContent: 'center' }}>
               <button 
                 className="btn-primary" 
-                onClick={!resultImage ? handlePreGenerateClick : handleReset}
+                onClick={!resultImages.length ? handlePreGenerateClick : handleReset}
                 disabled={isLoading}
                 style={{ maxWidth: '320px', padding: '12px 24px', fontSize: '16px' }}
               >
-                {isLoading ? "처리 중..." : (!resultImage ? "사진 생성하기" : "새로운 사진")}
+                {isLoading ? "처리 중..." : (!resultImages.length ? "사진 생성하기" : "새로운 사진")}
               </button>
             </div>
           ) : null}

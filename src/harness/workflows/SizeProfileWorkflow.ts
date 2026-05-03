@@ -13,8 +13,8 @@ export class SizeProfileWorkflow extends Workflow {
   }
 
   // 파일과 함께 사용자가 선택한 사진 규격(profileType)을 입력받습니다.
-  async run(input: { file: File | string, profileType: ProfileType }): Promise<string> {
-    console.log(`[Workflow: ${this.name}] ${input.profileType} 워크플로우 시작됨.`);
+  async run(input: { file: File | string, profileType: ProfileType, useAI?: boolean, geminiKey?: string }): Promise<string[]> {
+    console.log(`[Workflow: ${this.name}] ${input.profileType} 워크플로우 시작됨. (AI: ${input.useAI})`);
     
     let base64Image: string;
     
@@ -26,12 +26,14 @@ export class SizeProfileWorkflow extends Workflow {
     }
     
     // 에이전트에게 원본 이미지와 목표 규격을 함께 전달하여 지시합니다.
-    const resultBase64 = await this.profileAgent.process({ 
+    const resultBase64s = await this.profileAgent.process({ 
       imageBase64: base64Image,
-      targetProfileType: input.profileType
+      targetProfileType: input.profileType,
+      useAI: input.useAI,
+      geminiKey: input.geminiKey
     });
     
     console.log(`[Workflow: ${this.name}] 워크플로우 완료.`);
-    return resultBase64;
+    return Array.isArray(resultBase64s) ? resultBase64s : [resultBase64s];
   }
 }
