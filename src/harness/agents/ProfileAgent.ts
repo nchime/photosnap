@@ -35,9 +35,17 @@ export class ProfileAgent extends Agent {
         currentBase64 = results;
       }
 
-      // 나머지 일반 스킬들 순차 실행
+      // 나머지 스킬 실행 제어
       for (const skill of this.skills.values()) {
         if (skill.name === "SuperpowersSkill") continue; // 이미 위에서 처리됨
+        
+        // AI 미사용(원본 그대로 생성) 시에는 배경 제거 및 업스케일링 등을 건너뜁니다.
+        // 리사이징(FaceAlignment)만 수행하여 원본 느낌을 유지합니다.
+        if (!input.useAI && (skill.name === "BackgroundRemoval" || skill.name === "UpscaleSkill")) {
+          console.log(`[Agent: ${this.name}] '원본 그대로 생성' 모드이므로 ${skill.name} 건너뜀`);
+          continue;
+        }
+
         currentBase64 = await this.useSkill(skill.name, currentBase64, context);
       }
       
