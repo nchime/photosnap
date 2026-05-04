@@ -9,12 +9,14 @@ import { FaceAlignmentSkill } from '../skills/FaceAlignmentSkill';
 import { UpscaleSkill } from '../skills/UpscaleSkill';
 import { SuperpowersSkill } from '../skills/SuperpowersSkill';
 import { GitCommitSkill } from '../skills/GitCommitSkill';
+import { QualityCheckSkill } from '../skills/QualityCheckSkill';
 import { PassportPhotoWorkflow } from '../workflows/PassportPhotoWorkflow';
 import { SizeProfileWorkflow } from '../workflows/SizeProfileWorkflow';
+import { InspectorAgent } from '../agents/InspectorAgent';
 
 const Registry = {
-  Agents: { PhotoEditorAgent, ProfileAgent },
-  Skills: { BackgroundRemovalSkill, FaceAlignmentSkill, UpscaleSkill, SuperpowersSkill, GitCommitSkill },
+  Agents: { PhotoEditorAgent, ProfileAgent, InspectorAgent },
+  Skills: { BackgroundRemovalSkill, FaceAlignmentSkill, UpscaleSkill, SuperpowersSkill, GitCommitSkill, QualityCheckSkill },
   Workflows: { PassportPhotoWorkflow, SizeProfileWorkflow }
 };
 

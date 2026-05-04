@@ -21,3 +21,8 @@
 
 ## Workflow: SizeProfileWorkflow
 - Uses: ProfileAgent
+
+---
+
+## Agent: InspectorAgent
+- QualityCheckSkill
