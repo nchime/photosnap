@@ -24,8 +24,8 @@ export async function POST(request: Request) {
     // 3. 비동기 이벤트 트리거: 생성된 사진 품질 검수 (브라우저 대기 없이 백그라운드 실행)
     const inspector = config.agents['InspectorAgent'];
     if (inspector) {
-      // await을 생략하여 비동기로 실행 (로그 분석용)
-      inspector.process(resultUrls).catch((err: any) => 
+      // await을 생략하여 비동기로 실행 (로그 분석용, 컨텍스트 전달)
+      inspector.process(resultUrls, { profileType }).catch((err: any) => 
         console.error('[Async Trigger] InspectorAgent failed:', err)
       );
     }

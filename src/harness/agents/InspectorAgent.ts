@@ -8,12 +8,12 @@ export class InspectorAgent extends Agent {
     super();
   }
 
-  async process(input: string | string[]): Promise<any> {
-    console.log(`[Agent: ${this.name}] 비동기 품질 검수 프로세스 가동`);
+  async process(input: string | string[], context?: any): Promise<any> {
+    console.log(`[Agent: ${this.name}] 비동기 품질 검수 프로세스 가동 (컨텍스트 포함)`);
     
     try {
-      // 등록된 품질 검사 스킬 실행
-      const results = await this.useSkill("QualityCheckSkill", input);
+      // 등록된 품질 검사 스킬 실행 (컨텍스트 전달)
+      const results = await this.useSkill("QualityCheckSkill", input, context);
       
       // 실제 서비스라면 여기서 분석 결과를 DB에 저장하거나 
       // 품질이 낮을 경우 관리자에게 슬랙 알림을 보내는 등의 후처리를 할 수 있습니다.
