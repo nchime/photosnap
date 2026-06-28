@@ -4,6 +4,7 @@ import { useState, useRef, useCallback, useEffect } from "react";
 import Image from "next/image";
 import Cropper from 'react-easy-crop';
 import getCroppedImg from '@/utils/cropImage';
+import PassportGuideOverlay from '@/components/PassportGuideOverlay';
 import "./globals.css";
 
 interface SavedPhoto {
@@ -12,14 +13,13 @@ interface SavedPhoto {
   createdAt: number;
 }
 
-type ProfileType = 'id_25x35' | 'id_30x40' | 'resident_35x45' | 'passport_35x45' | 'instagram_1x1';
+type ProfileType = 'id_25x35' | 'id_30x40' | 'resident_35x45' | 'passport_35x45';
 
 const PROFILE_CONFIGS = {
   'id_25x35': { label: '증명사진 (2.5x3.5)', aspect: 2.5 / 3.5 },
   'id_30x40': { label: '반명함 (3x4)', aspect: 3 / 4 },
   'resident_35x45': { label: '주민등록증 (3.5x4.5)', aspect: 3.5 / 4.5 },
   'passport_35x45': { label: '여권 (3.5x4.5)', aspect: 3.5 / 4.5 },
-  'instagram_1x1': { label: '인스타그램 (1:1)', aspect: 1 / 1 },
 };
 
 export default function Home() {
@@ -39,6 +39,7 @@ export default function Home() {
   const [isValidating, setIsValidating] = useState(false);
   const [settingsError, setSettingsError] = useState<string | null>(null);
   const [showOptionDialog, setShowOptionDialog] = useState(false);
+  const [showGuide, setShowGuide] = useState(true);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -185,28 +186,26 @@ export default function Home() {
   };
 
   const saveSettings = async () => {
-    if (!geminiKey.trim()) {
-      setSettingsError("API 키를 입력해주세요.");
-      return;
-    }
-
     setIsValidating(true);
     setSettingsError(null);
 
     try {
-      // Gemini API 키 유효성 검사를 위해 간단한 모델 목록 조회 API 호출
-      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${geminiKey}`);
-      
-      if (response.ok) {
+      // Gemini API 키 유효성 검사
+      if (geminiKey.trim()) {
+        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${geminiKey}`);
+        if (!response.ok) {
+          const data = await response.json();
+          const errorMessage = data.error?.message || "유효하지 않은 API 키입니다.";
+          setSettingsError(`Gemini API 검증 실패: ${errorMessage}`);
+          setIsValidating(false);
+          return;
+        }
         localStorage.setItem("gemini_api_key", geminiKey);
-        setShowSettings(false);
-      } else {
-        const data = await response.json();
-        const errorMessage = data.error?.message || "유효하지 않은 API 키입니다.";
-        setSettingsError(`검증 실패: ${errorMessage}`);
       }
+
+      setShowSettings(false);
     } catch (error) {
-      console.error("API Key validation error:", error);
+      console.error("Settings save error:", error);
       setSettingsError("연결 오류가 발생했습니다. 네트워크 상태를 확인해주세요.");
     } finally {
       setIsValidating(false);
@@ -216,10 +215,10 @@ export default function Home() {
   return (
     <main className="main-content">
       <div className="container">
-        <div className="panel" style={{ maxWidth: '640px', margin: '0 auto', textAlign: 'center' }}>
+        <div className="panel" style={{ maxWidth: '960px', margin: '0 auto', textAlign: 'center' }}>
           
           <h1 className="heading-display" style={{ marginBottom: '24px' }}>
-            Photo Studio
+            증명사진 편집기
           </h1>
           <p className="text-body-large" style={{ marginBottom: '40px' }}>
             원하는 규격과 영역을 선택해 완벽한 증명사진을 만드세요.
@@ -297,32 +296,148 @@ export default function Home() {
                 </button>
               </div>
 
-              {/* Cropper Area */}
-              <div style={{ position: 'relative', width: '100%', height: '480px', backgroundColor: 'var(--snow)', borderRadius: '12px', overflow: 'hidden', border: '1px solid var(--light-gray)' }}>
-                <Cropper
-                  image={imageSrc}
-                  crop={crop}
-                  zoom={zoom}
-                  aspect={PROFILE_CONFIGS[profileType].aspect}
-                  onCropChange={setCrop}
-                  onCropComplete={onCropComplete}
-                  onZoomChange={setZoom}
-                  showGrid={true}
-                  style={{ containerStyle: { background: 'var(--snow)' } }}
-                />
-              </div>
-              <div style={{ marginTop: '24px', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                <label className="text-body" style={{ marginBottom: '8px', fontSize: '14px' }}>확대/축소</label>
-                <input
-                  type="range"
-                  value={zoom}
-                  min={1}
-                  max={3}
-                  step={0.1}
-                  aria-labelledby="Zoom"
-                  onChange={(e) => setZoom(Number(e.target.value))}
-                  style={{ width: '60%', cursor: 'pointer', accentColor: 'var(--black)' }}
-                />
+              <div style={{ display: 'flex', gap: '24px', alignItems: 'flex-start' }}>
+                {/* Cropper Area */}
+                <div style={{ flex: '1 1 60%' }}>
+                  <div style={{ position: 'relative', width: '100%', height: '480px', backgroundColor: 'var(--snow)', borderRadius: '12px', overflow: 'hidden', border: '1px solid var(--light-gray)' }}>
+                    <Cropper
+                      image={imageSrc}
+                      crop={crop}
+                      zoom={zoom}
+                      aspect={PROFILE_CONFIGS[profileType].aspect}
+                      onCropChange={setCrop}
+                      onCropComplete={onCropComplete}
+                      onZoomChange={setZoom}
+                      showGrid={true}
+                      style={{ containerStyle: { background: 'var(--snow)' } }}
+                    />
+                    <PassportGuideOverlay visible={showGuide} profileType={profileType} />
+                  </div>
+                  <div style={{ marginTop: '24px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '16px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '16px', width: '100%', justifyContent: 'center' }}>
+                      <label className="text-body" style={{ fontSize: '14px' }}>확대/축소</label>
+                      <input
+                        type="range"
+                        value={zoom}
+                        min={1}
+                        max={3}
+                        step={0.1}
+                        aria-labelledby="Zoom"
+                        onChange={(e) => setZoom(Number(e.target.value))}
+                        style={{ width: '50%', cursor: 'pointer', accentColor: 'var(--black)' }}
+                      />
+                    </div>
+                    {profileType === 'passport_35x45' && (
+                      <button
+                        onClick={() => setShowGuide(!showGuide)}
+                        style={{
+                          padding: '8px 16px',
+                          borderRadius: '9999px',
+                          border: '1px solid var(--silver)',
+                          background: showGuide ? 'var(--black)' : 'var(--white)',
+                          color: showGuide ? 'var(--white)' : 'var(--near-black)',
+                          cursor: 'pointer',
+                          fontSize: '13px',
+                          transition: 'all 0.2s ease',
+                        }}
+                      >
+                        {showGuide ? '가이드 숨기기' : '가이드 표시'}
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                {/* Info Panel */}
+                <div style={{ flex: '0 0 280px', padding: '20px', backgroundColor: 'var(--snow)', borderRadius: '12px', border: '1px solid var(--light-gray)' }}>
+                  <h3 style={{ fontSize: '16px', fontWeight: 600, marginBottom: '16px', color: 'var(--near-black)' }}>
+                    {profileType === 'passport_35x45' ? '여권사진 가이드' : '사진 규격 정보'}
+                  </h3>
+                  
+                  <div style={{ marginBottom: '20px' }}>
+                    <ul style={{ listStyle: 'none', padding: 0, margin: 0, fontSize: '13px', color: 'var(--mid-gray)', lineHeight: '1.8' }}>
+                      <li><span style={{ color: 'var(--near-black)', fontWeight: 500 }}>파일 형식:</span> JPG/JPEG</li>
+                      <li><span style={{ color: 'var(--near-black)', fontWeight: 500 }}>사이즈:</span> 413×531 픽셀</li>
+                      <li><span style={{ color: 'var(--near-black)', fontWeight: 500 }}>파일 크기:</span> 500KB 이하</li>
+                      <li><span style={{ color: 'var(--near-black)', fontWeight: 500 }}>해상도:</span> 300dpi 권장</li>
+                      <li><span style={{ color: 'var(--near-black)', fontWeight: 500 }}>배경:</span> 흰색 (자동 적용)</li>
+                      <li><span style={{ color: 'var(--near-black)', fontWeight: 500 }}>얼굴 비율:</span> 머리끝~턱 70~80%</li>
+                      <li><span style={{ color: 'var(--near-black)', fontWeight: 500 }}>촬영시기:</span> 6개월 이내 촬영</li>
+                    </ul>
+                  </div>
+
+                  {profileType === 'passport_35x45' && (
+                    <div>
+                      <h4 style={{ fontSize: '14px', fontWeight: 600, marginBottom: '10px', color: 'var(--near-black)' }}>
+                        편집 팁
+                      </h4>
+                      <ul style={{ listStyle: 'none', padding: 0, margin: 0, fontSize: '12px', color: 'var(--stone)', lineHeight: '1.8' }}>
+                        <li style={{ display: 'flex', alignItems: 'flex-start', gap: '6px' }}>
+                          <span style={{ color: 'rgba(59, 130, 246, 0.9)' }}>•</span>
+                          머리카락이 이마 위 파란 영역에 포함되어야 해요
+                        </li>
+                        <li style={{ display: 'flex', alignItems: 'flex-start', gap: '6px' }}>
+                          <span style={{ color: 'rgba(234, 179, 8, 0.9)' }}>•</span>
+                          눈높이는 노란색 영역 안에 위치하도록 해주세요
+                        </li>
+                        <li style={{ display: 'flex', alignItems: 'flex-start', gap: '6px' }}>
+                          <span style={{ color: 'rgba(34, 197, 94, 0.9)' }}>•</span>
+                          턱선과, 머리끝, 눈높이는 대략적으로 맞춰주셔도 좋아요
+                        </li>
+                        <li style={{ display: 'flex', alignItems: 'flex-start', gap: '6px' }}>
+                          <span style={{ color: 'var(--silver)' }}>•</span>
+                          안내선은 실제 저장된 이미지에 표시되지 않아요
+                        </li>
+                        <li style={{ display: 'flex', alignItems: 'flex-start', gap: '6px' }}>
+                          <span style={{ color: 'var(--silver)' }}>•</span>
+                          배경은 자동으로 흰색으로 설정되니 안심하세요
+                        </li>
+                      </ul>
+
+                      {/* 샘플 사진 */}
+                      <div style={{ marginTop: '20px', borderTop: '1px solid var(--light-gray)', paddingTop: '16px' }}>
+                        <h4 style={{ fontSize: '14px', fontWeight: 600, marginBottom: '12px', color: 'var(--near-black)' }}>
+                          참고 샘플
+                        </h4>
+                        <div style={{ display: 'flex', gap: '12px', justifyContent: 'center' }}>
+                          <div style={{ textAlign: 'center' }}>
+                            <div style={{ 
+                              width: '80px', 
+                              height: '104px', 
+                              borderRadius: '8px', 
+                              overflow: 'hidden', 
+                              border: '1px solid var(--light-gray)',
+                              marginBottom: '6px'
+                            }}>
+                              <img 
+                                src="/sample-male.svg" 
+                                alt="남성 샘플" 
+                                style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                              />
+                            </div>
+                            <span style={{ fontSize: '11px', color: 'var(--stone)' }}>남성</span>
+                          </div>
+                          <div style={{ textAlign: 'center' }}>
+                            <div style={{ 
+                              width: '80px', 
+                              height: '104px', 
+                              borderRadius: '8px', 
+                              overflow: 'hidden', 
+                              border: '1px solid var(--light-gray)',
+                              marginBottom: '6px'
+                            }}>
+                              <img 
+                                src="/sample-female.svg" 
+                                alt="여성 샘플" 
+                                style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                              />
+                            </div>
+                            <span style={{ fontSize: '11px', color: 'var(--stone)' }}>여성</span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
           )}
@@ -437,41 +552,44 @@ export default function Home() {
         <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(255,255,255,0.85)', zIndex: 60, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '24px' }}>
           <div className="card" style={{ width: '100%', maxWidth: '400px', textAlign: 'left', padding: '40px 32px' }}>
             <h3 className="heading-card" style={{ marginBottom: '24px', fontWeight: 500 }}>환경 설정</h3>
+            
+            {/* Gemini API Key */}
             <div style={{ marginBottom: '32px' }}>
               <label className="text-body" style={{ display: 'block', marginBottom: '8px', color: 'var(--near-black)', fontWeight: 500 }}>Gemini API Key</label>
               <p className="text-body" style={{ marginBottom: '12px', fontSize: '12px', color: 'var(--silver)' }}>
                 AI 보정 기능을 사용하기 위해서는 발급받은 Gemini API Key가 필요합니다. 입력하신 키는 브라우저 내부에만 안전하게 저장됩니다.
               </p>
-                <input 
-                   type="password" 
-                   value={geminiKey} 
-                   onChange={e => {
-                     setGeminiKey(e.target.value);
-                     if (settingsError) setSettingsError(null);
-                   }} 
-                   placeholder="AIzaSy..."
-                   style={{ width: '100%', padding: '12px 16px', borderRadius: '9999px', border: settingsError ? '1px solid #ff4d4f' : '1px solid var(--silver)', fontSize: '16px', outline: 'none' }} 
-                />
-                {settingsError && (
-                  <p style={{ color: '#ff4d4f', fontSize: '12px', marginTop: '8px', marginLeft: '12px' }}>
-                    {settingsError}
-                  </p>
-                )}
-              </div>
-              <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end' }}>
-                <button className="btn-white" onClick={() => {
-                  setShowSettings(false);
-                  setSettingsError(null);
-                }} disabled={isValidating}>취소</button>
-                <button 
-                  className="btn-primary" 
-                  onClick={saveSettings} 
-                  style={{ width: 'auto' }}
-                  disabled={isValidating}
-                >
-                  {isValidating ? "검증 중..." : "저장"}
-                </button>
-              </div>
+              <input 
+                 type="password" 
+                 value={geminiKey} 
+                 onChange={e => {
+                   setGeminiKey(e.target.value);
+                   if (settingsError) setSettingsError(null);
+                 }} 
+                 placeholder="AIzaSy..."
+                 style={{ width: '100%', padding: '12px 16px', borderRadius: '9999px', border: settingsError ? '1px solid #ff4d4f' : '1px solid var(--silver)', fontSize: '16px', outline: 'none' }} 
+              />
+              {settingsError && (
+                <p style={{ color: '#ff4d4f', fontSize: '12px', marginTop: '8px', marginLeft: '12px' }}>
+                  {settingsError}
+                </p>
+              )}
+            </div>
+
+            <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end' }}>
+              <button className="btn-white" onClick={() => {
+                setShowSettings(false);
+                setSettingsError(null);
+              }} disabled={isValidating}>취소</button>
+              <button 
+                className="btn-primary" 
+                onClick={saveSettings} 
+                style={{ width: 'auto' }}
+                disabled={isValidating}
+              >
+                {isValidating ? "검증 중..." : "저장"}
+              </button>
+            </div>
           </div>
         </div>
       )}
