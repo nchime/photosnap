@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef, useCallback, useEffect } from "react";
+import { Trash2, Download } from "lucide-react";
 import Image from "next/image";
 import Cropper from 'react-easy-crop';
 import getCroppedImg from '@/utils/cropImage';
@@ -30,6 +31,7 @@ export default function Home() {
   const [isLoading, setIsLoading] = useState(false);
   const [resultImages, setResultImages] = useState<string[]>([]);
   const [savedPhotos, setSavedPhotos] = useState<SavedPhoto[]>([]);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [profileType, setProfileType] = useState<ProfileType>('passport_35x45');
   const [isDragging, setIsDragging] = useState(false);
   
@@ -88,6 +90,20 @@ export default function Home() {
   const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
     setIsDragging(false);
+
+    // Check for gallery photo drag first
+    const photoUrl = e.dataTransfer.getData('text/photo-url');
+    if (photoUrl) {
+      setImageSrc(photoUrl);
+      setResultImages([]);
+      setZoom(1);
+      setCrop({ x: 0, y: 0 });
+      if (fileInputRef.current) {
+        fileInputRef.current.value = "";
+      }
+      return;
+    }
+
     const selected = e.dataTransfer.files?.[0];
     if (selected && (selected.type === "image/jpeg" || selected.type === "image/png")) {
       processFile(selected);
@@ -169,10 +185,30 @@ export default function Home() {
     }
   };
 
-  const handleDeletePhoto = (id: string) => {
+  const toggleSelect = (id: string) => {
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const deleteSelected = () => {
+    if (selectedIds.size === 0) return;
+    if (confirm(`${selectedIds.size}장의 사진을 보관함에서 삭제하시겠습니까?`)) {
+      const newSavedPhotos = savedPhotos.filter(p => !selectedIds.has(p.id));
+      setSavedPhotos(newSavedPhotos);
+      setSelectedIds(new Set());
+      localStorage.setItem("passport_photos", JSON.stringify(newSavedPhotos));
+    }
+  };
+
+  const handleDeleteSingle = (id: string) => {
     if (confirm("정말 이 사진을 보관함에서 삭제하시겠습니까?")) {
       const newSavedPhotos = savedPhotos.filter(p => p.id !== id);
       setSavedPhotos(newSavedPhotos);
+      setSelectedIds(prev => { const next = new Set(prev); next.delete(id); return next; });
       localStorage.setItem("passport_photos", JSON.stringify(newSavedPhotos));
     }
   };
@@ -327,116 +363,65 @@ export default function Home() {
                         style={{ width: '50%', cursor: 'pointer', accentColor: 'var(--black)' }}
                       />
                     </div>
-                    {profileType === 'passport_35x45' && (
-                      <button
-                        onClick={() => setShowGuide(!showGuide)}
-                        style={{
-                          padding: '8px 16px',
-                          borderRadius: '9999px',
-                          border: '1px solid var(--silver)',
-                          background: showGuide ? 'var(--black)' : 'var(--white)',
-                          color: showGuide ? 'var(--white)' : 'var(--near-black)',
-                          cursor: 'pointer',
-                          fontSize: '13px',
-                          transition: 'all 0.2s ease',
-                        }}
-                      >
-                        {showGuide ? '가이드 숨기기' : '가이드 표시'}
-                      </button>
-                    )}
+                    <button
+                      onClick={() => setShowGuide(!showGuide)}
+                      style={{
+                        padding: '8px 16px',
+                        borderRadius: '9999px',
+                        border: '1px solid var(--silver)',
+                        background: showGuide ? 'var(--black)' : 'var(--white)',
+                        color: showGuide ? 'var(--white)' : 'var(--near-black)',
+                        cursor: 'pointer',
+                        fontSize: '13px',
+                        transition: 'all 0.2s ease',
+                      }}
+                    >
+                      {showGuide ? '가이드 숨기기' : '가이드 표시'}
+                    </button>
                   </div>
                 </div>
 
                 {/* Info Panel */}
                 <div style={{ flex: '0 0 280px', padding: '20px', backgroundColor: 'var(--snow)', borderRadius: '12px', border: '1px solid var(--light-gray)' }}>
                   <h3 style={{ fontSize: '16px', fontWeight: 600, marginBottom: '16px', color: 'var(--near-black)' }}>
-                    {profileType === 'passport_35x45' ? '여권사진 가이드' : '사진 규격 정보'}
+                    {(Object.keys(PROFILE_CONFIGS) as ProfileType[]).includes(profileType) ? `${PROFILE_CONFIGS[profileType].label} 가이드` : '사진 규격 정보'}
                   </h3>
                   
-                  <div style={{ marginBottom: '20px' }}>
+                  <div style={{ marginBottom: '16px' }}>
                     <ul style={{ listStyle: 'none', padding: 0, margin: 0, fontSize: '13px', color: 'var(--mid-gray)', lineHeight: '1.8' }}>
                       <li><span style={{ color: 'var(--near-black)', fontWeight: 500 }}>파일 형식:</span> JPG/JPEG</li>
-                      <li><span style={{ color: 'var(--near-black)', fontWeight: 500 }}>사이즈:</span> 413×531 픽셀</li>
-                      <li><span style={{ color: 'var(--near-black)', fontWeight: 500 }}>파일 크기:</span> 500KB 이하</li>
+                      <li><span style={{ color: 'var(--near-black)', fontWeight: 500 }}>규격:</span> {PROFILE_CONFIGS[profileType]?.label || '증명사진'}</li>
                       <li><span style={{ color: 'var(--near-black)', fontWeight: 500 }}>해상도:</span> 300dpi 권장</li>
                       <li><span style={{ color: 'var(--near-black)', fontWeight: 500 }}>배경:</span> 흰색 (자동 적용)</li>
-                      <li><span style={{ color: 'var(--near-black)', fontWeight: 500 }}>얼굴 비율:</span> 머리끝~턱 70~80%</li>
+                      <li><span style={{ color: 'var(--near-black)', fontWeight: 500 }}>얼굴 비율:</span> 머리끝~턱 65~80%</li>
                       <li><span style={{ color: 'var(--near-black)', fontWeight: 500 }}>촬영시기:</span> 6개월 이내 촬영</li>
                     </ul>
                   </div>
 
-                  {profileType === 'passport_35x45' && (
-                    <div>
-                      <h4 style={{ fontSize: '14px', fontWeight: 600, marginBottom: '10px', color: 'var(--near-black)' }}>
-                        편집 팁
-                      </h4>
-                      <ul style={{ listStyle: 'none', padding: 0, margin: 0, fontSize: '12px', color: 'var(--stone)', lineHeight: '1.8' }}>
-                        <li style={{ display: 'flex', alignItems: 'flex-start', gap: '6px' }}>
-                          <span style={{ color: 'rgba(59, 130, 246, 0.9)' }}>•</span>
-                          머리카락이 이마 위 파란 영역에 포함되어야 해요
-                        </li>
-                        <li style={{ display: 'flex', alignItems: 'flex-start', gap: '6px' }}>
-                          <span style={{ color: 'rgba(234, 179, 8, 0.9)' }}>•</span>
-                          눈높이는 노란색 영역 안에 위치하도록 해주세요
-                        </li>
-                        <li style={{ display: 'flex', alignItems: 'flex-start', gap: '6px' }}>
-                          <span style={{ color: 'rgba(34, 197, 94, 0.9)' }}>•</span>
-                          턱선과, 머리끝, 눈높이는 대략적으로 맞춰주셔도 좋아요
-                        </li>
-                        <li style={{ display: 'flex', alignItems: 'flex-start', gap: '6px' }}>
-                          <span style={{ color: 'var(--silver)' }}>•</span>
-                          안내선은 실제 저장된 이미지에 표시되지 않아요
-                        </li>
-                        <li style={{ display: 'flex', alignItems: 'flex-start', gap: '6px' }}>
-                          <span style={{ color: 'var(--silver)' }}>•</span>
-                          배경은 자동으로 흰색으로 설정되니 안심하세요
-                        </li>
-                      </ul>
+                  <div>
+                    <h4 style={{ fontSize: '14px', fontWeight: 600, marginBottom: '10px', color: 'var(--near-black)' }}>
+                      안내선 설명
+                    </h4>
+                    <ul style={{ listStyle: 'none', padding: 0, margin: 0, fontSize: '12px', color: 'var(--stone)', lineHeight: '1.8' }}>
+                      <li style={{ display: 'flex', alignItems: 'flex-start', gap: '6px' }}>
+                        <span style={{ color: 'rgba(255,255,255,0.7)' }}>•</span>
+                        흰색 점선 타원: 권장 얼굴 위치
+                      </li>
+                      <li style={{ display: 'flex', alignItems: 'flex-start', gap: '6px' }}>
+                        <span style={{ color: 'rgba(239, 68, 68, 0.8)' }}>•</span>
+                        빨간색 선/점: 눈높이 기준선
+                      </li>
+                      <li style={{ display: 'flex', alignItems: 'flex-start', gap: '6px' }}>
+                        <span style={{ color: 'rgba(255,255,255,0.4)' }}>•</span>
+                        흰색 여백선: 머리끝/턱/좌우 여백
+                      </li>
+                      <li style={{ display: 'flex', alignItems: 'flex-start', gap: '6px' }}>
+                        <span style={{ color: 'var(--silver)' }}>•</span>
+                        안내선은 저장된 이미지에 포함되지 않아요
+                      </li>
+                    </ul>
+                  </div>
 
-                      {/* 샘플 사진 */}
-                      <div style={{ marginTop: '20px', borderTop: '1px solid var(--light-gray)', paddingTop: '16px' }}>
-                        <h4 style={{ fontSize: '14px', fontWeight: 600, marginBottom: '12px', color: 'var(--near-black)' }}>
-                          참고 샘플
-                        </h4>
-                        <div style={{ display: 'flex', gap: '12px', justifyContent: 'center' }}>
-                          <div style={{ textAlign: 'center' }}>
-                            <div style={{ 
-                              width: '80px', 
-                              height: '104px', 
-                              borderRadius: '8px', 
-                              overflow: 'hidden', 
-                              border: '1px solid var(--light-gray)',
-                              marginBottom: '6px'
-                            }}>
-                              <img 
-                                src="/sample-male.svg" 
-                                alt="남성 샘플" 
-                                style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                              />
-                            </div>
-                            <span style={{ fontSize: '11px', color: 'var(--stone)' }}>남성</span>
-                          </div>
-                          <div style={{ textAlign: 'center' }}>
-                            <div style={{ 
-                              width: '80px', 
-                              height: '104px', 
-                              borderRadius: '8px', 
-                              overflow: 'hidden', 
-                              border: '1px solid var(--light-gray)',
-                              marginBottom: '6px'
-                            }}>
-                              <img 
-                                src="/sample-female.svg" 
-                                alt="여성 샘플" 
-                                style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                              />
-                            </div>
-                            <span style={{ fontSize: '11px', color: 'var(--stone)' }}>여성</span>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  )}
                 </div>
               </div>
             </div>
@@ -492,28 +477,131 @@ export default function Home() {
         {/* 내 보관함 섹션 */}
         {savedPhotos.length > 0 && (
           <div style={{ maxWidth: '1024px', margin: '88px auto 0' }}>
-            <h2 className="heading-section" style={{ marginBottom: '32px' }}>
-              내 보관함
-            </h2>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                <div
+                  onClick={() => {
+                    if (selectedIds.size === savedPhotos.length) {
+                      setSelectedIds(new Set());
+                    } else {
+                      setSelectedIds(new Set(savedPhotos.map(p => p.id)));
+                    }
+                  }}
+                  style={{
+                    width: '20px', height: '20px',
+                    borderRadius: '4px',
+                    border: selectedIds.size === savedPhotos.length ? 'none' : '1.5px solid var(--silver)',
+                    background: selectedIds.size === savedPhotos.length ? 'var(--black)' : 'transparent',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    cursor: 'pointer',
+                    transition: 'all 0.15s ease',
+                  }}
+                >
+                  {selectedIds.size === savedPhotos.length && (
+                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                      <polyline points="20 6 9 17 4 12" />
+                    </svg>
+                  )}
+                </div>
+                <h2 className="heading-section" style={{ margin: 0 }}>
+                  내 보관함
+                </h2>
+              </div>
+              {selectedIds.size > 0 && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                  <span style={{ fontSize: '14px', color: 'var(--stone)' }}>{selectedIds.size}개 선택</span>
+                  <button
+                    onClick={deleteSelected}
+                    style={{
+                      display: 'flex', alignItems: 'center', gap: '6px',
+                      padding: '8px 16px',
+                      borderRadius: '9999px',
+                      border: '1px solid rgba(239, 68, 68, 0.5)',
+                      background: 'rgba(239, 68, 68, 0.08)',
+                      color: 'rgba(239, 68, 68, 0.9)',
+                      cursor: 'pointer',
+                      fontSize: '13px',
+                      fontWeight: 500,
+                      transition: 'all 0.2s ease',
+                    }}
+                  >
+                    <Trash2 size={14} />
+                    선택 삭제
+                  </button>
+                </div>
+              )}
+            </div>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: '24px' }}>
               {savedPhotos.map((photo) => (
-                <div key={photo.id} className="card" style={{ padding: '16px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                  <div style={{ position: 'relative', width: '100%', aspectRatio: '3/4', borderRadius: '8px', overflow: 'hidden', border: '1px solid var(--light-gray)' }}>
+                <div key={photo.id} style={{
+                  position: 'relative',
+                  padding: '16px',
+                  display: 'flex', flexDirection: 'column', gap: '16px',
+                  borderRadius: '12px',
+                  border: selectedIds.has(photo.id) ? '1px solid var(--black)' : '1px solid var(--light-gray)',
+                  backgroundColor: selectedIds.has(photo.id) ? 'var(--light-gray)' : 'var(--white)',
+                  transition: 'all 0.15s ease',
+                }}>
+                  <div
+                    draggable
+                    onDragStart={(e) => {
+                      e.dataTransfer.setData('text/photo-url', photo.url);
+                      e.dataTransfer.effectAllowed = 'copy';
+                    }}
+                    style={{
+                      position: 'relative', width: '100%', aspectRatio: '3/4',
+                      borderRadius: '8px', overflow: 'hidden',
+                      border: '1px solid var(--light-gray)',
+                      cursor: 'grab',
+                    }}
+                  >
                     <Image src={photo.url} alt="Saved Passport Photo" fill style={{ objectFit: 'cover' }} />
+                    <div
+                      onClick={() => toggleSelect(photo.id)}
+                      style={{
+                        position: 'absolute', top: '8px', left: '8px',
+                        width: '22px', height: '22px',
+                        borderRadius: '4px',
+                        border: '2px solid rgba(255,255,255,0.8)',
+                        background: selectedIds.has(photo.id) ? 'var(--black)' : 'rgba(0,0,0,0.25)',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        cursor: 'pointer',
+                        transition: 'all 0.15s ease',
+                      }}
+                    >
+                      {selectedIds.has(photo.id) && (
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                          <polyline points="20 6 9 17 4 12" />
+                        </svg>
+                      )}
+                    </div>
                   </div>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <a 
-                      href={photo.url} 
+                    <a
+                      href={photo.url}
                       download={`passport_${photo.id}.png`}
-                      style={{ fontSize: '14px', color: 'var(--near-black)', textDecoration: 'none', fontWeight: 500 }}
+                      style={{
+                        display: 'flex', alignItems: 'center',
+                        color: 'var(--near-black)', cursor: 'pointer',
+                        padding: '4px',
+                        borderRadius: '6px',
+                        transition: 'all 0.15s ease',
+                      }}
                     >
-                      다운로드
+                      <Download size={15} />
                     </a>
-                    <button 
-                      onClick={() => handleDeletePhoto(photo.id)}
-                      style={{ background: 'none', border: 'none', color: 'var(--stone)', cursor: 'pointer', fontSize: '14px' }}
+                    <button
+                      onClick={() => handleDeleteSingle(photo.id)}
+                      style={{
+                        display: 'flex', alignItems: 'center',
+                        background: 'none', border: 'none',
+                        color: 'var(--stone)', cursor: 'pointer',
+                        padding: '4px',
+                        borderRadius: '6px',
+                        transition: 'all 0.15s ease',
+                      }}
                     >
-                      삭제
+                      <Trash2 size={15} />
                     </button>
                   </div>
                 </div>
